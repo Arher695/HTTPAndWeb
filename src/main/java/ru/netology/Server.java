@@ -10,17 +10,23 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Server {
     static final List<String> validPaths = List.of("/index.html", "/spring.svg", "/spring.png",
             "/resources.html", "/styles.css", "/app.js", "/links.html", "/forms.html",
             "/classic.html", "/events.html", "/events.js");
+    private final ExecutorService executorService = Executors.newFixedThreadPool(64);
+
 
     public Socket serverStart(int port) {
         try (var serverSocket = new ServerSocket(port)) {//запуск сервера
-
-            return serverSocket.accept();//ожидание подключения
-
+            //return serverSocket.accept(); //ожидание подключения
+            while (true) {
+                final var socket = serverSocket.accept();
+                executorService.submit(() -> connect(socket));
+            }
         } catch (IOException e) {
             e.printStackTrace();
             return null;
@@ -48,7 +54,6 @@ public class Server {
             e.printStackTrace();
         }
     }
-
 
     public static void notFound(BufferedOutputStream out) throws IOException {
         out.write((

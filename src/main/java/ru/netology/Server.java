@@ -9,7 +9,10 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -17,42 +20,94 @@ public class Server {
     static final List<String> validPaths = List.of("/index.html", "/spring.svg", "/spring.png",
             "/resources.html", "/styles.css", "/app.js", "/links.html", "/forms.html",
             "/classic.html", "/events.html", "/events.js");
-    private final ExecutorService executorService = Executors.newFixedThreadPool(64);
+    final int NUMBER_THREADS = 64;
+    private Socket socket;
+    private final ExecutorService threadPool;
+    private final ConcurrentHashMap<String, Map<String, Handler>> handlerMap;
 
+    public Server() {
+        threadPool = Executors.newFixedThreadPool(NUMBER_THREADS);
+        handlerMap = new ConcurrentHashMap<>();
+    }
 
-    public Socket serverStart(int port) {
-        try (var serverSocket = new ServerSocket(port)) {//запуск сервера
+    public void serverStart(int port) {
+        try (final var serverSocket = new ServerSocket(port)) {//запуск сервера
             //return serverSocket.accept(); //ожидание подключения
             while (true) {
-                final var socket = serverSocket.accept();
-                executorService.submit(() -> connect(socket));
+                socket = serverSocket.accept();
+                System.out.println("\n" + socket);
+                threadPool.execute(this::connect);
             }
         } catch (IOException e) {
             e.printStackTrace();
-            return null;
+        } finally {
+            threadPool.shutdown();
         }
     }
 
-    public void connect(Socket socket) {
-        try (
-                socket;
-                final var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                final var out = new BufferedOutputStream(socket.getOutputStream());
-        ) {
-            // read only request line for simplicity
-            // must be in form GET /path HTTP/1.1
-            final var requestLine = in.readLine(); //запрос
-            final var parts = requestLine.split(" ");
-            final var path = parts[1];
+    public void connect() {
+        try (final var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             final var out = new BufferedOutputStream(socket.getOutputStream())) {
+            while (true) {
+                Request request = createRequest(in, out);
+                Handler handler = handlerMap.get(request.getMethod()).get(request.getPath());
+                System.out.println("handler: " + handler);
 
-            if (parts.length != 3 && !validPaths.contains(path)) {
-                notFound(out);
-            } else {
-                getResponse(out, path);
+                final var path = request.getPath();
+                if (!validPaths.contains(path)) {
+                    notFound(out);
+                    return;
+                }
+                createResponse(request, out);
+                System.out.println();
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public void createResponse(Request request, BufferedOutputStream out) throws IOException {
+        final var filePath = Path.of(".", "public", request.getPath());
+        final var mimeType = Files.probeContentType(filePath);
+
+        if (request.getPath().equals("/classic.html")) {
+            final var template = Files.readString(filePath);
+            final var content = template.replace("{time}", LocalDateTime.now().toString()).getBytes();
+            out.write(yesFound(mimeType, content.length).getBytes());
+            out.write(content);
+            out.flush();
+
+        }
+        final var length = Files.size(filePath);
+        out.write(yesFound(mimeType, length).getBytes());
+        Files.copy(filePath, out);
+        out.flush();
+    }
+
+    public Request createRequest(BufferedReader in, BufferedOutputStream out) throws IOException {
+        var requestLine = "";
+        do {
+            requestLine = in.readLine();
+        } while (requestLine == null);
+        System.out.println("\n" + requestLine);
+        final var parts = requestLine.split(" ");
+        if (parts.length != 3) {
+            out.write(("Не корректный запрос").getBytes());
+            System.out.println("Введён некорректный запрос");
+            socket.close();
+        }
+        String heading;
+        Map<String, String> headers = new HashMap<>();
+        while (!(heading = in.readLine()).equals("")) {
+            var indexOf = heading.indexOf(":");
+            var nameHeader = heading.substring(0, indexOf);
+            var valueHeader = heading.substring(indexOf + 2);
+            headers.put(nameHeader, valueHeader);
+        }
+        Request request = new Request(parts[0], parts[1], headers, socket.getInputStream());
+        System.out.println("request: " + request);
+        out.flush();
+        return request;
     }
 
     public static void notFound(BufferedOutputStream out) throws IOException {
@@ -91,6 +146,15 @@ public class Server {
             Files.copy(filePath, out);
         }
         out.flush();
+    }
+
+    public void addHandler(String method, String path, Handler handler) {
+        if (handlerMap.containsKey(method)) {
+            handlerMap.get(method).put(path, handler);
+        } else {
+            handlerMap.put(method, new ConcurrentHashMap<>(Map.of(path, handler)));
+        }
+        System.out.println(handlerMap);
     }
 }
 

@@ -1,7 +1,5 @@
 package ru.netology;
 
-import com.sun.net.httpserver.Request;
-
 import java.io.BufferedOutputStream;
 
 @FunctionalInterface

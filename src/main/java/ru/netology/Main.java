@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -54,6 +55,12 @@ public class Main {
                     throw new RuntimeException(ex);
                 }
             }
+        });
+
+        server.addHandler("GET", "/messages", (request, out) -> {
+            String lastParam = request.getQueryParam("last");
+            Map<String, String> allParams = request.getQueryParams();
+            // обработка запроса с параметрами
         });
 
         // Запуск сервера

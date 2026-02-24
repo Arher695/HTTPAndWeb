@@ -1,5 +1,7 @@
 package ru.netology;
 
+
+
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -81,11 +83,15 @@ public class Server {
         }
     }
 
-    private Request parseRequest(String requestLine) {
-        String[] parts = requestLine.split(" ");
-        String method = parts.length > 0 ? parts[0] : "";
-        String path = parts.length > 1 ? parts[1] : "";
-        return new Request(method, path);
+    private ru.netology.Request parseRequest(String requestLine) {
+        try {
+            return ru.netology.Request.parse(requestLine);
+        } catch (Exception e) {
+            String[] parts = requestLine.split(" ");
+            String method = parts.length > 0 ? parts[0] : "";
+            String path = parts.length > 1 ? parts[1] : "";
+            return new ru.netology.Request(method, path);
+        }
     }
 
     public void addHandler(String method, String path, Handler handler) {
@@ -134,128 +140,8 @@ public class Server {
         }
         threadPool.shutdown();
     }
-
-    /*public void serverStart(int port) {
-        threadPool = Executors.newFixedThreadPool(NUMBER_THREADS);
-        try (final var serverSocket = new ServerSocket(port)) {//запуск сервера
-            while (true) {
-                socket = serverSocket.accept();
-                System.out.println("\n" + socket);
-                threadPool.execute(this::connect);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            threadPool.shutdown();
-        }
-    }
-
-    public void connect() {
-        try (final var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-             final var out = new BufferedOutputStream(socket.getOutputStream())) {
-            while (true) {
-                final var request = createRequest(in);
-                if (!validPaths.contains(request.getPath())) {
-                    notFound(out);
-                    return;
-                }
-                var methodHandlers = handlerMap.get(request.getMethod());
-                if (methodHandlers == null) {
-                    notFound(out);
-                    return;
-                }
-
-                // Получаем сам обработчик
-                Handler handler = methodHandlers.get(request.getPath());
-                if (handler == null) {
-                    notFound(out);
-                    return;
-                }
-
-                handler.handle(request, out);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void createResponse(Request request, BufferedOutputStream out) throws IOException {
-        final var filePath = Path.of(".", "public", request.getPath());
-        final var mimeType = Files.probeContentType(filePath);
-
-        if (Objects.equals(request.getMethod(), "/classic.html")) {
-            final var template = Files.readString(filePath);
-            final var content = template.replace("{time}", LocalDateTime.now().toString()).getBytes();
-            out.write(yesFound(mimeType, content.length).getBytes());
-            out.write(content);
-            out.flush();
-
-        }
-        final var length = Files.size(filePath);
-        out.write(yesFound(mimeType, length).getBytes());
-        Files.copy(filePath, out);
-        out.flush();
-    }
-
-    public Request createRequest(BufferedReader in) throws IOException {
-        var requestLine = in.readLine();
-        final var parts = requestLine.split(" ");
-        return new Request(parts[0], parts[1]);
-    }
-
-    public static void notFound(BufferedOutputStream out) throws IOException {
-        out.write((
-                "HTTP/1.1 404 Not Found\r\n" +
-                        "Content-Length: 0\r\n" +
-                        "Connection: close\r\n" +
-                        "\r\n"
-        ).getBytes());
-        out.flush();
-    }
-
-    public static String yesFound(String mimeType, long length) {
-        return "HTTP/1.1 200 OK\r\n" +
-                "Content-Type: " + mimeType + "\r\n" +
-                "Content-Length: " + length + "\r\n" +
-                "Connection: close\r\n" +
-                "\r\n";
-    }
-
-    public static void getResponse(BufferedOutputStream out, String path) throws IOException {
-        final var filePath = Path.of(".", "public", path);
-        final var mimeType = Files.probeContentType(filePath);
-        // special case for classic
-        if (path.equals("/classic.html")) {
-            final var template = Files.readString(filePath);
-            final var content = template.replace(
-                    "{time}",
-                    LocalDateTime.now().toString()
-            ).getBytes();
-            out.write(yesFound(mimeType, content.length).getBytes());
-            out.write(content);
-        } else {
-            final var length = Files.size(filePath);
-            out.write(yesFound(mimeType, length).getBytes());
-            Files.copy(filePath, out);
-        }
-        out.flush();
-    }
-
-    public void addHandler(String method, String path, Handler handler) {
-        if (handlerMap.containsKey(method)) {
-            if (!handlerMap.get(method).containsKey(path)) {
-                var pathMap = handlerMap.get(method);
-                pathMap.put(path, handler);
-                handlerMap.put(method, pathMap);
-            }
-        } else {
-            var pathMap = new ConcurrentHashMap<String, Handler>();
-            pathMap.put(path, handler);
-            handlerMap.put(method, pathMap);
-        }
-        System.out.println(handlerMap);
-    }*/
 }
+
 
 
 

@@ -11,19 +11,25 @@ public class Request {
     private final String path;
     private final Map<String, String> queryParams;
     private final Map<String, String> formParams;
+    private final Map<String, String> multipartParams;
+    private final Map<String, byte[]> fileParams;
 
     public Request(String method, String path) {
         this.method = method;
         this.path = path;
         this.queryParams = new HashMap<>();
         this.formParams = new HashMap<>();
+        this.multipartParams = new HashMap<>();
+        this.fileParams = new HashMap<>();
     }
 
-    public Request(String method, String path, Map<String, String> queryParams, Map<String, String> formParams) {
+    public Request(String method, String path, Map<String, String> queryParams, Map<String, String> formParams, Map<String, String> multipartParams, Map<String, byte[]> fileParams) {
         this.method = method;
         this.path = path;
         this.queryParams = queryParams;
         this.formParams = formParams;
+        this.multipartParams = multipartParams;
+        this.fileParams = fileParams;
     }
 
     public String getMethod() {
@@ -40,6 +46,22 @@ public class Request {
 
     public String getFormParam(String name) {
         return formParams.get(name);
+    }
+
+    public Map<String, String> getMultipartParams() {
+        return multipartParams;
+    }
+
+    public String getMultipartParam(String name) {
+        return multipartParams.get(name);
+    }
+
+    public Map<String, byte[]> getFileParams() {
+        return fileParams;
+    }
+
+    public byte[] getFileParam(String name) {
+        return fileParams.get(name);
     }
 
     public Map<String, String> getQueryParams() {
@@ -73,7 +95,7 @@ public class Request {
             }
         }
         
-        return new Request(method, path, queryParams, new HashMap<>());
+        return new Request(method, path, queryParams, new HashMap<>(), new HashMap<>(), new HashMap<>());
     }
 
     @Override
@@ -83,6 +105,8 @@ public class Request {
                 ", path='" + path + '\'' +
                 ", queryParams=" + queryParams +
                 ", formParams=" + formParams +
+                ", multipartParams=" + multipartParams +
+                ", fileParams=" + fileParams +
                 '}';
     }
 }

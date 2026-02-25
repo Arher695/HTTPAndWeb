@@ -91,37 +91,109 @@ public class Server {
             // Читаем заголовки
             String line;
             String contentType = null;
+            String boundary = null;
             int contentLength = 0;
             
             while ((line = in.readLine()) != null && !line.isEmpty()) {
                 if (line.toLowerCase().startsWith("content-type:")) {
                     contentType = line.substring(13).trim();
+                    if (contentType.startsWith("multipart/form-data")) {
+                        int boundaryIndex = contentType.indexOf("boundary=");
+                        if (boundaryIndex != -1) {
+                            boundary = contentType.substring(boundaryIndex + 9);
+                        }
+                    }
                 } else if (line.toLowerCase().startsWith("content-length:")) {
                     contentLength = Integer.parseInt(line.substring(15).trim());
                 }
             }
             
             // Обрабатываем тело запроса, если это POST и есть данные
-            if ("POST".equals(request.getMethod()) && contentLength > 0 && "application/x-www-form-urlencoded".equals(contentType)) {
-                char[] bodyChars = new char[contentLength];
-                in.read(bodyChars, 0, contentLength);
-                String body = new String(bodyChars);
-                
-                Map<String, String> formParams = new HashMap<>();
-                String[] params = body.split("&");
-                for (String param : params) {
-                    String[] keyValue = param.split("=", 2);
-                    if (keyValue.length == 2) {
-                        formParams.put(keyValue[0], keyValue[1]);
-                    } else {
-                        formParams.put(keyValue[0], "");
+            if ("POST".equals(request.getMethod()) && contentLength > 0) {
+                if ("application/x-www-form-urlencoded".equals(contentType)) {
+                    char[] bodyChars = new char[contentLength];
+                    in.read(bodyChars, 0, contentLength);
+                    String body = new String(bodyChars);
+                    
+                    Map<String, String> formParams = new HashMap<>();
+                    String[] params = body.split("&");
+                    for (String param : params) {
+                        String[] keyValue = param.split("=", 2);
+                        if (keyValue.length == 2) {
+                            formParams.put(keyValue[0], keyValue[1]);
+                        } else {
+                            formParams.put(keyValue[0], "");
+                        }
                     }
+                    
+                    return new ru.netology.Request(request.getMethod(), request.getPath(), request.getQueryParams(), formParams, new HashMap<>(), new HashMap<>());
+                } else if (contentType != null && contentType.startsWith("multipart/form-data") && boundary != null) {
+                    Map<String, String> multipartParams = new HashMap<>();
+                    Map<String, byte[]> fileParams = new HashMap<>();
+                    
+                    // Читаем тело multipart запроса
+                    StringBuilder bodyBuilder = new StringBuilder();
+                    int totalRead = 0;
+                    char[] buffer = new char[1024];
+                    
+                    while (totalRead < contentLength) {
+                        int read = in.read(buffer, 0, Math.min(buffer.length, contentLength - totalRead));
+                        if (read == -1) break;
+                        bodyBuilder.append(buffer, 0, read);
+                        totalRead += read;
+                    }
+                    
+                    String body = bodyBuilder.toString();
+                    // Удаляем начальную и конечную границы
+                    body = body.replaceFirst("^--" + java.util.regex.Pattern.quote(boundary) + "\r\n", "");
+                    body = body.replaceFirst("--" + java.util.regex.Pattern.quote(boundary) + "--$", "");
+                    String[] parts = body.split("--" + java.util.regex.Pattern.quote(boundary));
+                    
+                    for (String part : parts) {
+                        if (part.trim().isEmpty() || part.trim().equals("--")) continue;
+                        
+                        int headerEnd = part.indexOf("\r\n\r\n");
+                        if (headerEnd == -1) continue;
+                        
+                        String headers = part.substring(0, headerEnd);
+                        String content = part.substring(headerEnd + 4); // +4 для \r\n\r\n
+                        
+                        // Удаляем последний \r\n
+                        if (content.endsWith("\r\n")) {
+                            content = content.substring(0, content.length() - 2);
+                        }
+                        
+                        // Проверяем, является ли часть файлом
+                        if (headers.contains("filename=\"") || headers.contains("filename*=utf-8''")) {
+                            // Извлекаем имя параметра
+                            int nameStart = headers.indexOf("name=\"");
+                            if (nameStart != -1) {
+                                nameStart += 6; // длина "name=\""
+                                int nameEnd = headers.indexOf("\"", nameStart);
+                                if (nameEnd != -1) {
+                                    String paramName = headers.substring(nameStart, nameEnd);
+                                    fileParams.put(paramName, content.getBytes(UTF_8));
+                                }
+                            }
+                        } else {
+                            // Простое текстовое поле
+                            int nameStart = headers.indexOf("name=\"");
+                            if (nameStart != -1) {
+                                nameStart += 6;
+                                int nameEnd = headers.indexOf("\"", nameStart);
+                                if (nameEnd != -1) {
+                                    String paramName = headers.substring(nameStart, nameEnd);
+                                    multipartParams.put(paramName, content);
+                                }
+                            }
+                        }
+                    }
+                    
+                    return new ru.netology.Request(request.getMethod(), request.getPath(), request.getQueryParams(), new HashMap<>(), multipartParams, fileParams);
                 }
-                
-                return new ru.netology.Request(request.getMethod(), request.getPath(), request.getQueryParams(), formParams);
             }
             
-            return new ru.netology.Request(request.getMethod(), request.getPath(), request.getQueryParams(), new HashMap<>());
+            return new ru.netology.Request(request.getMethod(), request.getPath(), request.getQueryParams(), new HashMap<>(), new HashMap<>(), new HashMap<>());
         } catch (Exception e) {
             String[] parts = requestLine.split(" ");
             String method = parts.length > 0 ? parts[0] : "";

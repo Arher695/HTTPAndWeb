@@ -60,7 +60,7 @@ public class Main {
         server.addHandler("GET", "/messages", (request, out) -> {
             String lastParam = request.getQueryParam("last");
             Map<String, String> allParams = request.getQueryParams();
-            // обработка запроса с параметрами
+
         });
 
         // Запуск сервера

@@ -10,17 +10,20 @@ public class Request {
     private final String method;
     private final String path;
     private final Map<String, String> queryParams;
+    private final Map<String, String> formParams;
 
     public Request(String method, String path) {
         this.method = method;
         this.path = path;
         this.queryParams = new HashMap<>();
+        this.formParams = new HashMap<>();
     }
 
-    public Request(String method, String path, Map<String, String> queryParams) {
+    public Request(String method, String path, Map<String, String> queryParams, Map<String, String> formParams) {
         this.method = method;
         this.path = path;
         this.queryParams = queryParams;
+        this.formParams = formParams;
     }
 
     public String getMethod() {
@@ -29,6 +32,14 @@ public class Request {
 
     public String getPath() {
         return path;
+    }
+
+    public Map<String, String> getFormParams() {
+        return formParams;
+    }
+
+    public String getFormParam(String name) {
+        return formParams.get(name);
     }
 
     public Map<String, String> getQueryParams() {
@@ -62,7 +73,7 @@ public class Request {
             }
         }
         
-        return new Request(method, path, queryParams);
+        return new Request(method, path, queryParams, new HashMap<>());
     }
 
     @Override
@@ -71,6 +82,7 @@ public class Request {
                 "method='" + method + '\'' +
                 ", path='" + path + '\'' +
                 ", queryParams=" + queryParams +
+                ", formParams=" + formParams +
                 '}';
     }
 }

@@ -10,6 +10,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -56,7 +57,7 @@ public class Server {
             String requestLine = in.readLine();
             if (requestLine == null) return;
 
-            Request request = parseRequest(requestLine);
+            Request request = parseRequest(requestLine, in);
             System.out.println("Received: " + request);
 
             if (!VALID_PATHS.contains(request.getPath())) {
@@ -83,9 +84,44 @@ public class Server {
         }
     }
 
-    private ru.netology.Request parseRequest(String requestLine) {
+    private ru.netology.Request parseRequest(String requestLine, BufferedReader in) throws IOException {
         try {
-            return ru.netology.Request.parse(requestLine);
+            ru.netology.Request request = ru.netology.Request.parse(requestLine);
+            
+            // Читаем заголовки
+            String line;
+            String contentType = null;
+            int contentLength = 0;
+            
+            while ((line = in.readLine()) != null && !line.isEmpty()) {
+                if (line.toLowerCase().startsWith("content-type:")) {
+                    contentType = line.substring(13).trim();
+                } else if (line.toLowerCase().startsWith("content-length:")) {
+                    contentLength = Integer.parseInt(line.substring(15).trim());
+                }
+            }
+            
+            // Обрабатываем тело запроса, если это POST и есть данные
+            if ("POST".equals(request.getMethod()) && contentLength > 0 && "application/x-www-form-urlencoded".equals(contentType)) {
+                char[] bodyChars = new char[contentLength];
+                in.read(bodyChars, 0, contentLength);
+                String body = new String(bodyChars);
+                
+                Map<String, String> formParams = new HashMap<>();
+                String[] params = body.split("&");
+                for (String param : params) {
+                    String[] keyValue = param.split("=", 2);
+                    if (keyValue.length == 2) {
+                        formParams.put(keyValue[0], keyValue[1]);
+                    } else {
+                        formParams.put(keyValue[0], "");
+                    }
+                }
+                
+                return new ru.netology.Request(request.getMethod(), request.getPath(), request.getQueryParams(), formParams);
+            }
+            
+            return new ru.netology.Request(request.getMethod(), request.getPath(), request.getQueryParams(), new HashMap<>());
         } catch (Exception e) {
             String[] parts = requestLine.split(" ");
             String method = parts.length > 0 ? parts[0] : "";
@@ -99,7 +135,6 @@ public class Server {
                 .put(path, handler);
     }
 
-    // Вспомогательные методы для ответов
 
     public void sendOk(BufferedOutputStream out, String mimeType, byte[] content) throws IOException {
         out.write(("HTTP/1.1 200 OK\r\n" +

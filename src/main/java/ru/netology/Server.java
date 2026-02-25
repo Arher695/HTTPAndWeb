@@ -32,13 +32,21 @@ public class Server {
             "/links.html", "/forms.html", "/classic.html",
             "/events.html", "/events.js"
     );
-
+//Конструктор Server(int port):
+//
+//Инициализирует сервер на указанном порту
+//Создает пул из 64 потоков
+//Инициализирует карту для хранения обработчиков
     public Server(int port) {
         this.port = port;
         this.threadPool = Executors.newFixedThreadPool(64);
         this.handlerMap = new ConcurrentHashMap<>();
     }
-
+//start():
+//
+//Создает ServerSocket
+//Входит в бесконечный цикл приема подключений
+//Для каждого подключения запускает обработку в отдельном потоке
     public void start() throws IOException {
         serverSocket = new ServerSocket(port);
         System.out.println("Server started on port " + port);
@@ -48,7 +56,13 @@ public class Server {
             threadPool.execute(() -> handleConnection(socket));
         }
     }
-
+//handleConnection(Socket socket):
+//
+//Создает BufferedReader и BufferedOutputStream
+//Читает request line
+//Парсит запрос с помощью parseRequest()
+//Проверяет валидность пути
+//Находит и вызывает соответствующий обработчик
     private void handleConnection(Socket socket) {
         try (socket;
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream(), UTF_8));
@@ -83,7 +97,15 @@ public class Server {
             System.err.println("Connection error: " + e.getMessage());
         }
     }
-
+//parseRequest(String requestLine, BufferedReader in):
+//
+//Основной метод парсинга запроса
+//Читает заголовки для получения Content-Type и Content-Length
+//Обрабатывает два типа тел:
+//
+//application/x-www-form-urlencoded: разбирает &-параметры
+//multipart/form-data: парсит по boundary, извлекает файлы и поля
+//Возвращает Request с заполненными параметрами
     private ru.netology.Request parseRequest(String requestLine, BufferedReader in) throws IOException {
         try {
             ru.netology.Request request = ru.netology.Request.parse(requestLine);
@@ -201,13 +223,19 @@ public class Server {
             return new ru.netology.Request(method, path);
         }
     }
-
+//addHandler(String method, String path, Handler handler):
+//
+//Регистрирует обработчик для метода и пути
+//Использует вложенные ConcurrentHashMap
     public void addHandler(String method, String path, Handler handler) {
         handlerMap.computeIfAbsent(method, k -> new ConcurrentHashMap<>())
                 .put(path, handler);
     }
 
-
+//Методы отправки ответов:
+//
+//sendOk(): формирует 200 OK ответ с содержимым
+//sendNotFound(): формирует 404 Not Found ответ
     public void sendOk(BufferedOutputStream out, String mimeType, byte[] content) throws IOException {
         out.write(("HTTP/1.1 200 OK\r\n" +
                 "Content-Type: " + mimeType + "\r\n" +
@@ -236,7 +264,10 @@ public class Server {
                 "\r\n").getBytes());
         out.flush();
     }
-
+//stop():
+//
+//Корректно завершает работу сервера
+//Закрывает ServerSocket и пул потоков
     public void stop() {
         try {
             if (serverSocket != null && !serverSocket.isClosed()) {

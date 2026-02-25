@@ -13,7 +13,11 @@ public class Request {
     private final Map<String, String> formParams;
     private final Map<String, String> multipartParams;
     private final Map<String, byte[]> fileParams;
-
+//Конструкторы:
+//
+//Request(String method, String path): базовый конструктор, инициализирует все
+// коллекции пустыми значениями
+//Request(...): полный конструктор для всех типов параметров
     public Request(String method, String path) {
         this.method = method;
         this.path = path;
@@ -39,7 +43,12 @@ public class Request {
     public String getPath() {
         return path;
     }
-
+//Геттеры для параметров:
+//
+//getQueryParam(): получает Query параметр из URL
+//getFormParam(): получает параметр из x-www-form-urlencoded тела
+//getMultipartParam(): получает текстовое поле из multipart тела
+//getFileParam(): получает содержимое файла из multipart тела
     public Map<String, String> getFormParams() {
         return formParams;
     }
@@ -71,7 +80,12 @@ public class Request {
     public String getQueryParam(String name) {
         return queryParams.get(name);
     }
-
+//parse(String requestLine):
+//
+//Разбирает HTTP request line
+//Извлекает метод и URL
+//Парсит Query параметры из URL
+//Возвращает Request с пустыми коллекциями для тела (обрабатывается в Server)
     public static Request parse(String requestLine) throws URISyntaxException {
         String[] parts = requestLine.split(" ");
         if (parts.length < 2) {

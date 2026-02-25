@@ -7,7 +7,13 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-
+//main():
+//
+//Создает и настраивает сервер
+//Регистрирует обработчики для статических файлов
+//Запускает сервер и обрабатывает исключения
+//Система работает по принципу: получение запроса -> парсинг ->
+// поиск обработчика -> обработка -> отправка ответа, с полной поддержкой всех типов HTTP параметров.
 public class Main {
     public static void main(String[] args) throws InterruptedException {
         Server server = new Server(9999);
